@@ -1,31 +1,51 @@
 /* ========================================
-   AUDIO.JS - Audio Manager
-   Sound effects and background music
+   AUDIO.JS — Audio manager (Web Audio oscillator SFX)
+   ----------------------------------------
+   Fix vs. previous version: the AudioContext was created on
+   DOMContentLoaded, before any user gesture. Chrome on Android
+   (and most modern mobile browsers) creates every AudioContext in
+   a "suspended" state until it is resumed inside a user-gesture
+   handler — so every sound in the old version silently never
+   played on a phone. It now resumes on the first tap/click/key
+   anywhere on the page.
    ======================================== */
 
-// ===== AUDIO MANAGER =====
 class AudioManager {
     static sounds = {};
     static enabled = true;
-    static audioToggle = document.getElementById('audio-toggle');
+    static audioContext = null;
+    static audioToggle = null;
+    static _unlocked = false;
 
     static init() {
-        // Create audio context
-        this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        
-        // Setup toggle button
+        this.audioToggle = document.getElementById('audio-toggle');
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (AC) this.audioContext = new AC();
+
         if (this.audioToggle) {
             this.audioToggle.addEventListener('click', () => this.toggle());
         }
-        
+
+        const unlock = () => {
+            if (this._unlocked || !this.audioContext) return;
+            if (this.audioContext.state === 'suspended') {
+                this.audioContext.resume().catch(() => {});
+            }
+            this._unlocked = true;
+            ['pointerdown', 'touchstart', 'keydown'].forEach(evt =>
+                document.removeEventListener(evt, unlock)
+            );
+        };
+        ['pointerdown', 'touchstart', 'keydown'].forEach(evt =>
+            document.addEventListener(evt, unlock, { passive: true })
+        );
+
         this.enabled = true;
     }
 
     static play(soundName) {
         if (!this.enabled || !this.audioContext) return;
-        
-        // Create different sounds based on name
-        switch(soundName) {
+        switch (soundName) {
             case 'gift-open':
                 this.playSound(400, 200, 0.1);
                 this.playSound(600, 200, 0.1, 100);
@@ -53,31 +73,29 @@ class AudioManager {
     }
 
     static playSound(frequency, duration, volume = 0.1, delay = 0) {
-        if (!this.audioContext) return;
-        
-        const now = this.audioContext.currentTime + (delay / 1000);
-        
-        // Create oscillator
+        if (!this.audioContext || this.audioContext.state !== 'running') return;
+        const now = this.audioContext.currentTime + delay / 1000;
+
         const oscillator = this.audioContext.createOscillator();
         oscillator.frequency.value = frequency;
         oscillator.type = 'sine';
-        
-        // Create gain node
+
         const gainNode = this.audioContext.createGain();
         gainNode.gain.setValueAtTime(volume, now);
-        gainNode.gain.exponentialRampToValueAtTime(0.001, now + (duration / 1000));
-        
-        // Connect and play
+        gainNode.gain.exponentialRampToValueAtTime(0.001, now + duration / 1000);
+
         oscillator.connect(gainNode);
         gainNode.connect(this.audioContext.destination);
-        
+
         oscillator.start(now);
-        oscillator.stop(now + (duration / 1000));
+        oscillator.stop(now + duration / 1000);
+        // Oscillators are single-use by spec; explicitly disconnect once
+        // finished so the node graph doesn't accumulate references.
+        oscillator.onended = () => { oscillator.disconnect(); gainNode.disconnect(); };
     }
 
     static toggle() {
         this.enabled = !this.enabled;
-        
         if (this.audioToggle) {
             this.audioToggle.classList.toggle('muted');
             this.audioToggle.textContent = this.enabled ? '🔊' : '🔇';
@@ -85,7 +103,4 @@ class AudioManager {
     }
 }
 
-// ===== Initialize =====
-document.addEventListener('DOMContentLoaded', () => {
-    AudioManager.init();
-});
+document.addEventListener('DOMContentLoaded', () => AudioManager.init());

@@ -1,22 +1,38 @@
 /* ========================================
-   APP.JS - Main Application Logic
-   Birthday Website Core Functionality
+   APP.JS — Main application logic
+   ----------------------------------------
+   Consolidated single source of truth. Previously this same logic
+   was split (and duplicated!) across app.js, game.js and secret.js:
+   - game.js re-implemented the candle game and star hunt with its
+     own separate counters, attaching a second click handler to
+     every candle/star — but it ran in a DOMContentLoaded listener
+     that fired BEFORE this file created those elements (script load
+     order), so in practice it silently did nothing. Dead code.
+   - secret.js re-implemented the Konami code + secret-text detector
+     that already existed below, each with its own `setInterval`
+     fireworks loop that was never cleared — a real, unbounded
+     memory/CPU leak that got WORSE by existing twice.
+   - This file itself registered `DOMContentLoaded` twice (once
+     unconditionally, once again in the "fallback" branch that
+     always evaluates true at this point in the load timeline),
+     which doubled the intro typing, doubled the candles (30
+     instead of 15, visually overlapping), and doubled the hidden
+     stars (with duplicate DOM ids).
+
+   All three files are now merged into this one, initialised once.
    ======================================== */
 
-// ===== STATE MANAGEMENT =====
 const state = {
     introComplete: false,
     giftOpened: false,
-    candlesBlow: 0,
+    candlesBlown: 0,
     totalCandles: 15,
     starsFound: 0,
     totalStars: 15,
     secretModeActive: false,
     cosmicModeActive: false,
-    audioEnabled: true,
 };
 
-// ===== DOM ELEMENTS =====
 const elements = {
     introScreen: document.getElementById('intro-screen'),
     giftButtonContainer: document.getElementById('gift-button-container'),
@@ -27,47 +43,53 @@ const elements = {
     card: document.getElementById('birthday-card'),
     candlesContainer: document.getElementById('candles-container'),
     candleCount: document.getElementById('candle-count'),
-    starsFound: document.getElementById('stars-found'),
+    candleProgress: document.getElementById('candle-progress'),
+    starsFoundLabel: document.getElementById('stars-found'),
     gameProgress: document.getElementById('game-progress'),
     fireworksCanvas: document.getElementById('fireworks-canvas'),
-    audioToggle: document.getElementById('audio-toggle'),
     confettiContainer: document.getElementById('confetti-container'),
     secretNotification: document.getElementById('secret-notification'),
     timeline: document.getElementById('timeline'),
     section7: document.getElementById('section-7'),
 };
 
-// ===== TYPING ANIMATION =====
+const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* ===== SLEEP UTILITY ===== */
+function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+/* ===== TYPING ANIMATION ===== */
 class TypingAnimation {
     constructor(element, texts, speed = 50, delayBetween = 1000) {
         this.element = element;
         this.texts = texts;
         this.speed = speed;
         this.delayBetween = delayBetween;
-        this.currentIndex = 0;
     }
 
     async start() {
-        for (let i = 0; i < this.texts.length; i++) {
-            await this.typeText(this.texts[i]);
-            await this.sleep(this.delayBetween);
+        if (reducedMotion) {
+            this.element.textContent = this.texts[this.texts.length - 1];
+            return;
+        }
+        for (const text of this.texts) {
+            await this.typeText(text);
+            await sleep(this.delayBetween);
         }
     }
 
     async typeText(text) {
         this.element.textContent = '';
-        for (let char of text) {
+        for (const char of text) {
             this.element.textContent += char;
-            await this.sleep(this.speed);
+            await sleep(this.speed);
         }
-    }
-
-    sleep(ms) {
-        return new Promise(resolve => setTimeout(resolve, ms));
     }
 }
 
-// ===== INTRO SEQUENCE =====
+/* ===== INTRO SEQUENCE ===== */
 async function startIntro() {
     const typingTexts = [
         'Trong hàng tỷ vì sao ngoài kia...',
@@ -75,192 +97,154 @@ async function startIntro() {
         'Có một ngôi sao đặc biệt vừa bước sang tuổi 15.',
     ];
 
-    const typing = new TypingAnimation(elements.typingText, typingTexts, 40, 1500);
-    await typing.start();
+    await new TypingAnimation(elements.typingText, typingTexts, 40, 1500).start();
 
-    // Show name
     elements.personName.style.display = 'block';
-    await sleep(1500);
+    await sleep(reducedMotion ? 200 : 1200);
 
-    // Show gift button
     elements.giftButtonContainer.style.display = 'flex';
-    await sleep(500);
-
     state.introComplete = true;
 }
 
-// ===== GIFT BUTTON CLICK =====
+/* ===== GIFT BUTTON ===== */
 function setupGiftButton() {
     elements.giftButton.addEventListener('click', async () => {
+        if (state.giftOpened) return;
         state.giftOpened = true;
-        
-        // Hide intro
+
         elements.introScreen.classList.add('hidden');
-        await sleep(500);
-        
-        // Show main content
+        await sleep(reducedMotion ? 50 : 500);
+
+        elements.introScreen.style.display = 'none';
         elements.mainContent.style.display = 'block';
-        
-        // Play sound
+
         AudioManager.play('gift-open');
-        
-        // Show confetti
         createConfetti(50);
-        
-        // Scroll to first section
+
         setTimeout(() => {
-            document.getElementById('section-1').scrollIntoView({ behavior: 'smooth' });
-        }, 500);
+            document.getElementById('section-1').scrollIntoView({ behavior: reducedMotion ? 'auto' : 'smooth' });
+        }, 400);
     });
 }
 
-// ===== SLEEP UTILITY =====
-function sleep(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
+/* ===== CARD FLIP ===== */
+function setupCardFlip() {
+    if (!elements.card) return;
+    elements.card.addEventListener('click', () => {
+        elements.card.classList.toggle('flipped');
+        AudioManager.play('click');
+    });
 }
 
-// ===== GENERATE CANDLES =====
+/* ===== CANDLE GAME ===== */
 function generateCandles() {
-    const totalCandles = 15;
     const container = elements.candlesContainer;
-    const cake = document.querySelector('.cake');
-    
-    for (let i = 0; i < totalCandles; i++) {
-        const angle = (360 / totalCandles) * i;
+    const fragment = document.createDocumentFragment();
+
+    for (let i = 0; i < state.totalCandles; i++) {
+        const angle = (360 / state.totalCandles) * i;
         const radius = 60;
         const x = Math.cos((angle * Math.PI) / 180) * radius;
         const y = Math.sin((angle * Math.PI) / 180) * radius;
-        
+
         const candle = document.createElement('div');
         candle.className = 'candle';
         candle.style.left = `calc(50% + ${x}px)`;
         candle.style.bottom = `${y + 100}px`;
         candle.innerHTML = '<div class="candle-flame"></div>';
-        
+
         candle.addEventListener('click', (e) => {
             e.stopPropagation();
             blowCandle(candle);
         });
-        
-        container.appendChild(candle);
+
+        fragment.appendChild(candle);
     }
+    container.appendChild(fragment);
 }
 
-// ===== BLOW CANDLE =====
 function blowCandle(candleEl) {
     if (candleEl.classList.contains('blown')) return;
-    
+
     candleEl.classList.add('blown');
-    state.candlesBlow++;
-    
-    // Update UI
-    elements.candleCount.textContent = `${state.candlesBlow}/${state.totalCandles} cây nến`;
-    const progress = (state.candlesBlow / state.totalCandles) * 100;
-    document.getElementById('candle-progress').style.width = `${progress}%`;
-    
-    // Play sound
+    state.candlesBlown++;
+
+    elements.candleCount.textContent = `${state.candlesBlown}/${state.totalCandles} cây nến`;
+    const progress = (state.candlesBlown / state.totalCandles) * 100;
+    elements.candleProgress.style.width = `${progress}%`;
+
     AudioManager.play('candle-blow');
-    
-    // Create particles
-    createCandleParticles(candleEl);
-    
-    // Check if all candles blown
-    if (state.candlesBlow === state.totalCandles) {
-        onAllCandlesBlow();
+    spawnBurstParticles(candleEl, '✨', 5, 60);
+
+    if (state.candlesBlown === state.totalCandles) {
+        onAllCandlesBlown();
     }
 }
 
-// ===== CREATE CANDLE PARTICLES =====
-function createCandleParticles(candleEl) {
-    const rect = candleEl.getBoundingClientRect();
-    const x = rect.left + rect.width / 2;
-    const y = rect.top + rect.height / 2;
-    
-    // Fire particles
-    for (let i = 0; i < 5; i++) {
-        const particle = document.createElement('div');
-        particle.style.position = 'fixed';
-        particle.style.left = x + 'px';
-        particle.style.top = y + 'px';
-        particle.style.fontSize = '1.2rem';
-        particle.textContent = '✨';
-        particle.style.pointerEvents = 'none';
-        particle.style.zIndex = '8000';
-        
-        document.body.appendChild(particle);
-        
-        const angle = (Math.PI * 2 * i) / 5;
-        const velocity = 3 + Math.random() * 3;
-        const vx = Math.cos(angle) * velocity;
-        const vy = Math.sin(angle) * velocity - 2;
-        
-        let px = x, py = y;
-        const duration = 1000;
-        const startTime = Date.now();
-        
-        function animate() {
-            const elapsed = Date.now() - startTime;
-            const progress = elapsed / duration;
-            
-            px += vx;
-            py += vy;
-            vy += 0.1; // gravity
-            
-            particle.style.left = px + 'px';
-            particle.style.top = py + 'px';
-            particle.style.opacity = 1 - progress;
-            
-            if (progress < 1) {
-                requestAnimationFrame(animate);
-            } else {
-                particle.remove();
-            }
-        }
-        
-        animate();
-    }
-}
-
-// ===== ALL CANDLES BLOWN =====
-function onAllCandlesBlow() {
+function onAllCandlesBlown() {
+    elements.candleProgress.classList.add('complete');
     AudioManager.play('success');
     createConfetti(100);
-    
+
     setTimeout(() => {
-        // Trigger fireworks
-        if (elements.fireworksCanvas && elements.fireworksCanvas.getContext) {
-            FireworksManager.trigger(window.innerWidth / 2, window.innerHeight / 2);
-        }
-    }, 500);
+        FireworksManager.trigger(window.innerWidth / 2, window.innerHeight / 2, 80);
+    }, 400);
 }
 
-// ===== CONFETTI CREATION =====
+/* Shared helper for the small "particles fly outward" effect used by
+   both the candle game and the star hunt (previously duplicated
+   almost verbatim in three different files). */
+function spawnBurstParticles(originEl, glyph, count, distance) {
+    if (reducedMotion) return;
+    const rect = originEl.getBoundingClientRect();
+    const originX = rect.left + rect.width / 2;
+    const originY = rect.top + rect.height / 2;
+
+    for (let i = 0; i < count; i++) {
+        const particle = document.createElement('div');
+        particle.textContent = glyph;
+        Object.assign(particle.style, {
+            position: 'fixed',
+            left: originX + 'px',
+            top: originY + 'px',
+            fontSize: '1rem',
+            pointerEvents: 'none',
+            zIndex: '800',
+        });
+        document.body.appendChild(particle);
+
+        const angle = (Math.PI * 2 * i) / count;
+        const endX = Math.cos(angle) * distance;
+        const endY = Math.sin(angle) * distance;
+
+        const anim = particle.animate(
+            [
+                { transform: 'translate(0, 0) scale(1)', opacity: 1 },
+                { transform: `translate(${endX}px, ${endY}px) scale(0)`, opacity: 0 },
+            ],
+            { duration: 650, easing: 'ease-out' }
+        );
+        anim.onfinish = () => particle.remove();
+    }
+}
+
+/* ===== CONFETTI ===== */
 function createConfetti(count) {
+    const glyphs = ['🎉', '✨', '🎊', '⭐', '💫'];
     for (let i = 0; i < count; i++) {
         const confetti = document.createElement('div');
         confetti.className = 'confetti';
         confetti.style.left = Math.random() * window.innerWidth + 'px';
-        confetti.style.top = '-10px';
-        confetti.textContent = ['🎉', '✨', '🎊', '⭐', '💫'][Math.floor(Math.random() * 5)];
-        confetti.style.fontSize = Math.random() * 2 + 1 + 'rem';
+        confetti.textContent = glyphs[Math.floor(Math.random() * glyphs.length)];
+        confetti.style.fontSize = (Math.random() * 2 + 1) + 'rem';
         confetti.style.animation = `confettiFall ${2 + Math.random() * 2}s linear forwards`;
-        
+
         elements.confettiContainer.appendChild(confetti);
-        
-        setTimeout(() => confetti.remove(), 5000);
+        setTimeout(() => confetti.remove(), 4500);
     }
 }
 
-// ===== CARD FLIP =====
-function setupCardFlip() {
-    if (!elements.card) return;
-    
-    elements.card.addEventListener('click', () => {
-        elements.card.classList.toggle('flipped');
-    });
-}
-
-// ===== TIMELINE GENERATION =====
+/* ===== TIMELINE ===== */
 function generateTimeline() {
     const timelineData = [
         { year: 2026, message: '🎂 Chúc mừng tuổi 15. Em sẽ tỏa sáng!' },
@@ -273,12 +257,10 @@ function generateTimeline() {
         { year: 2040, message: '💖 Mong rằng khi nhìn lại, em sẽ mỉm cười' },
     ];
 
-    elements.timeline.innerHTML = '';
-    
-    timelineData.forEach((item, index) => {
+    const fragment = document.createDocumentFragment();
+    timelineData.forEach(item => {
         const timelineItem = document.createElement('div');
         timelineItem.className = 'timeline-item';
-        
         timelineItem.innerHTML = `
             <div class="timeline-marker"></div>
             <div class="timeline-content">
@@ -286,49 +268,27 @@ function generateTimeline() {
                 <div class="timeline-message">${item.message}</div>
             </div>
         `;
-        
-        elements.timeline.appendChild(timelineItem);
+        fragment.appendChild(timelineItem);
     });
+    elements.timeline.appendChild(fragment);
 }
 
-// ===== SCROLL TRIGGER ANIMATIONS =====
-class ScrollTrigger {
-    constructor() {
-        this.elements = document.querySelectorAll('[data-animate]');
-        this.observer = new IntersectionObserver(
-            (entries) => this.handleIntersection(entries),
-            { threshold: 0.1 }
-        );
-        this.init();
-    }
-
-    init() {
-        this.elements.forEach(el => this.observer.observe(el));
-    }
-
-    handleIntersection(entries) {
-        entries.forEach(entry => {
-            if (entry.isIntersecting) {
-                const animationType = entry.target.dataset.animate;
-                entry.target.classList.add(`animate-${animationType}`);
-                this.observer.unobserve(entry.target);
-            }
-        });
-    }
-}
-
-// ===== HIDDEN STARS SETUP =====
+/* ===== HIDDEN STAR HUNT ===== */
 function setupHiddenStars() {
-    for (let i = 0; i < 15; i++) {
+    for (let i = 0; i < state.totalStars; i++) {
         const star = document.createElement('div');
         star.className = 'hidden-star';
         star.textContent = '⭐';
-        star.style.left = Math.random() * 100 + '%';
-        star.style.top = Math.random() * 100 + '%';
+        // Keep stars within a safe 5%-90% band so they never land
+        // under the fixed audio button or get clipped off-screen.
+        star.style.left = (5 + Math.random() * 85) + '%';
+        star.style.top = (5 + Math.random() * 85) + '%';
         star.id = `star-${i}`;
-        
+        star.setAttribute('role', 'button');
+        star.setAttribute('aria-label', 'Ngôi sao bí mật');
+
         document.body.appendChild(star);
-        
+
         star.addEventListener('click', (e) => {
             e.stopPropagation();
             findStar(star);
@@ -336,183 +296,164 @@ function setupHiddenStars() {
     }
 }
 
-// ===== FIND STAR =====
 function findStar(starEl) {
     if (starEl.classList.contains('found')) return;
-    
+
     starEl.classList.add('found');
-    starEl.style.opacity = '0.3';
-    starEl.style.pointerEvents = 'none';
-    
     state.starsFound++;
-    
-    // Update progress
+
     const progress = (state.starsFound / state.totalStars) * 100;
-    document.getElementById('game-progress').style.width = `${progress}%`;
-    elements.starsFound.textContent = `${state.starsFound}/${state.totalStars} sao`;
-    
-    // Play sound
+    elements.gameProgress.style.width = `${progress}%`;
+    elements.starsFoundLabel.textContent = `${state.starsFound}/${state.totalStars} sao`;
+
     AudioManager.play('star-found');
-    
-    // Create effect
-    createStarEffect(starEl);
-    
-    // Check if all found
+    spawnBurstParticles(starEl, '⭐', 8, 70);
+
     if (state.starsFound === state.totalStars) {
         onAllStarsFound();
     }
 }
 
-// ===== CREATE STAR EFFECT =====
-function createStarEffect(starEl) {
-    const rect = starEl.getBoundingClientRect();
-    
-    for (let i = 0; i < 8; i++) {
-        const particle = document.createElement('div');
-        particle.textContent = '✨';
-        particle.style.position = 'fixed';
-        particle.style.left = rect.left + 'px';
-        particle.style.top = rect.top + 'px';
-        particle.style.pointerEvents = 'none';
-        particle.style.zIndex = '8000';
-        
-        document.body.appendChild(particle);
-        
-        const angle = (Math.PI * 2 * i) / 8;
-        const distance = 50;
-        const endX = rect.left + Math.cos(angle) * distance;
-        const endY = rect.top + Math.sin(angle) * distance;
-        
-        particle.animate([
-            { transform: 'translate(0, 0) scale(1)', opacity: 1 },
-            { transform: `translate(${endX - rect.left}px, ${endY - rect.top}px) scale(0)`, opacity: 0 }
-        ], {
-            duration: 600,
-            easing: 'ease-out'
-        }).onfinish = () => particle.remove();
-    }
-}
-
-// ===== ALL STARS FOUND =====
 function onAllStarsFound() {
     AudioManager.play('success');
     createConfetti(80);
-    
-    // Unlock final gift
+
     setTimeout(() => {
         elements.section7.style.display = 'flex';
-        elements.section7.scrollIntoView({ behavior: 'smooth' });
-    }, 500);
+        elements.section7.scrollIntoView({ behavior: reducedMotion ? 'auto' : 'smooth' });
+    }, 400);
 }
 
-// ===== KEYBOARD INPUT =====
-let keySequence = [];
-const secretKeys = ['happy15', 'birthday'];
-const konamiCode = ['ArrowUp', 'ArrowUp', 'ArrowDown', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ArrowLeft', 'ArrowRight', 'b', 'a'];
+/* ===== SECRET CODES & EASTER EGGS ===== */
+const konamiCode = ['arrowup', 'arrowup', 'arrowdown', 'arrowdown', 'arrowleft', 'arrowright', 'arrowleft', 'arrowright', 'b', 'a'];
 let konamiIndex = 0;
+let keySequence = [];
+const secretKeys = ['happy15', 'birthday', 'secret'];
+let cosmicFireworksInterval = null;
+let cosmicMeteorInterval = null;
 
-document.addEventListener('keydown', (e) => {
-    // Konami code detection
-    if (e.key.toLowerCase() === konamiCode[konamiIndex]) {
-        konamiIndex++;
-        if (konamiIndex === konamiCode.length) {
-            activateCosmicMode();
-            konamiIndex = 0;
+function showSecretNotification(message, extraStyle = {}) {
+    const el = elements.secretNotification;
+    el.textContent = message;
+    Object.assign(el.style, extraStyle);
+    el.classList.remove('is-hiding');
+    el.classList.add('is-visible');
+
+    clearTimeout(showSecretNotification._hideTimer);
+    showSecretNotification._hideTimer = setTimeout(() => {
+        el.classList.add('is-hiding');
+        setTimeout(() => {
+            el.classList.remove('is-visible', 'is-hiding');
+            el.style.background = '';
+        }, 400);
+    }, 3000);
+}
+
+function activateSecretMode() {
+    if (state.secretModeActive) return;
+    state.secretModeActive = true;
+
+    showSecretNotification('🎉 Chúc mừng! Bạn đã mở khóa Thiên Hà Bí Mật.');
+    AudioManager.play('secret-unlock');
+    if (!reducedMotion) {
+        for (let i = 0; i < 40; i++) {
+            SparkleEffect.create(Math.random() * window.innerWidth, Math.random() * window.innerHeight, 3);
         }
-    } else {
-        konamiIndex = 0;
     }
-    
-    // Text sequence detection
-    keySequence.push(e.key.toLowerCase());
-    keySequence = keySequence.slice(-20);
-    
-    const sequence = keySequence.join('');
-    
-    secretKeys.forEach(key => {
-        if (sequence.includes(key)) {
+}
+
+function activateCosmicMode() {
+    if (state.cosmicModeActive) return;
+    state.cosmicModeActive = true;
+
+    showSecretNotification('🌌 Cosmic Mode Unlocked!', {
+        background: 'linear-gradient(135deg, #ff00ff, #00ffff)',
+    });
+    AudioManager.play('secret-unlock');
+
+    if (reducedMotion) return; // skip the heavy visual sequence entirely
+
+    document.body.style.background = 'linear-gradient(45deg, #ff00ff, #00ffff, #ffff00, #ff00ff)';
+    document.body.style.backgroundSize = '400% 400%';
+    document.body.style.animation = 'gradientShift 8s ease infinite';
+
+    // Both intervals are stored and explicitly capped/cleared — the
+    // previous implementation(s) left this running forever.
+    const COSMIC_DURATION = 10000;
+    cosmicFireworksInterval = setInterval(() => {
+        FireworksManager.trigger(Math.random() * window.innerWidth, Math.random() * window.innerHeight * 0.5, 60);
+    }, 300);
+    cosmicMeteorInterval = MeteorRainEffect.start(COSMIC_DURATION);
+
+    setTimeout(() => {
+        clearInterval(cosmicFireworksInterval);
+        document.body.style.background = '';
+        document.body.style.backgroundSize = '';
+        document.body.style.animation = '';
+        state.cosmicModeActive = false; // allow re-triggering later
+    }, COSMIC_DURATION);
+}
+
+function setupSecretDetection() {
+    document.addEventListener('keydown', (e) => {
+        const key = e.key.toLowerCase();
+
+        if (key === konamiCode[konamiIndex]) {
+            konamiIndex++;
+            if (konamiIndex === konamiCode.length) {
+                activateCosmicMode();
+                konamiIndex = 0;
+            }
+        } else {
+            konamiIndex = key === konamiCode[0] ? 1 : 0;
+        }
+
+        keySequence.push(key);
+        keySequence = keySequence.slice(-20);
+        const sequence = keySequence.join('');
+        if (!state.secretModeActive && secretKeys.some(k => sequence.includes(k))) {
             activateSecretMode();
         }
     });
-});
-
-// ===== ACTIVATE SECRET MODE =====
-function activateSecretMode() {
-    if (state.secretModeActive) return;
-    
-    state.secretModeActive = true;
-    
-    // Show notification
-    elements.secretNotification.style.display = 'block';
-    elements.secretNotification.textContent = '🎉 Chúc mừng! Bạn đã mở khóa Thiên Hà Bí Mật.';
-    
-    AudioManager.play('secret-unlock');
-    
-    setTimeout(() => {
-        elements.secretNotification.style.display = 'none';
-    }, 3000);
 }
 
-// ===== ACTIVATE COSMIC MODE =====
-function activateCosmicMode() {
-    if (state.cosmicModeActive) return;
-    
-    state.cosmicModeActive = true;
-    
-    // Show notification
-    elements.secretNotification.style.display = 'block';
-    elements.secretNotification.textContent = '🌌 Cosmic Mode Unlocked!';
-    elements.secretNotification.style.background = 'linear-gradient(135deg, #ff00ff, #00ffff)';
-    
-    // Trigger infinite fireworks
-    setInterval(() => {
-        FireworksManager.trigger(
-            Math.random() * window.innerWidth,
-            Math.random() * window.innerHeight / 2
-        );
-    }, 200);
-    
-    // Change background
-    document.body.style.background = 'linear-gradient(45deg, #ff00ff, #00ffff, #ffff00)';
-    
-    setTimeout(() => {
-        elements.secretNotification.style.display = 'none';
-    }, 3000);
+/* Triple-tap the intro name for a small easter egg — kept from the
+   old secret.js but now the only implementation, and guarded so it
+   can't fire once the intro has been dismissed (its container gets
+   pointer-events: none at that point anyway). */
+function setupNameEasterEgg() {
+    let clickCount = 0;
+    let lastClickTime = 0;
+    elements.personName.addEventListener('click', () => {
+        const now = Date.now();
+        clickCount = (now - lastClickTime < 500) ? clickCount + 1 : 1;
+        lastClickTime = now;
+
+        if (clickCount === 3) {
+            clickCount = 0;
+            const messages = ['🎉 Bạn tìm thấy easter egg!', '✨ Chúc mừng sinh nhật!', '💖 Mong bạn luôn vui vẻ!'];
+            showSecretNotification(messages[Math.floor(Math.random() * messages.length)]);
+            AudioManager.play('success');
+            FireworksManager.trigger(window.innerWidth / 2, window.innerHeight / 2, 60);
+        }
+    });
 }
 
-// ===== INITIALIZATION =====
+/* ===== INITIALISATION (runs exactly once) ===== */
 async function init() {
-    // Start intro
-    await startIntro();
-    
-    // Setup event listeners
     setupGiftButton();
     setupCardFlip();
-    
-    // Generate candles
     generateCandles();
-    
-    // Generate timeline
     generateTimeline();
-    
-    // Setup hidden stars
     setupHiddenStars();
-    
-    // Initialize scroll animations
-    new ScrollTrigger();
-    
-    // Log ready
+    setupSecretDetection();
+    setupNameEasterEgg();
+
+    await startIntro();
+
     console.log('🎂 Happy Birthday Website Ready!');
     console.log('✨ Try typing: happy15 or birthday');
     console.log('🎮 Try Konami code: ↑ ↑ ↓ ↓ ← → ← → B A');
 }
 
-// Start when DOM is ready
-document.addEventListener('DOMContentLoaded', init);
-
-// Fallback if DOM already loaded
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
-} else {
-    init();
-}
+document.addEventListener('DOMContentLoaded', init, { once: true });
