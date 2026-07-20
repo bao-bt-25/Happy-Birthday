@@ -2,7 +2,7 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="description" content="Trang web chúc mừng sinh nhật - Một trải nghiệm đặc biệt">
     <meta name="theme-color" content="#1a1a2e">
     
@@ -19,7 +19,7 @@
     <!-- Preconnect to fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700;800&family=Playfair+Display:wght@700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700;800&display=swap" rel="stylesheet">
 </head>
 <body>
     <!-- Galaxy Background Canvas -->
@@ -70,7 +70,7 @@
             <div class="section-content">
                 <h2 class="section-title">🎉 Chúc Mừng!</h2>
                 
-                <div class="card-container">
+                <div class="card-container" data-reveal="fade-in-down">
                     <div id="birthday-card" class="card">
                         <!-- Front -->
                         <div class="card-front">
@@ -118,7 +118,7 @@
                 <div class="cake-game">
                     <div class="cake-instruction">
                         <p>👇 Hãy thổi hết tất cả 15 cây nến!</p>
-                        <p style="font-size: 0.9rem; opacity: 0.7;">Nhấp vào mỗi cây nến để thổi</p>
+                        <p>Nhấp vào mỗi cây nến để thổi</p>
                     </div>
                     
                     <div id="candles-container" class="candles-container">
@@ -212,7 +212,7 @@
             <div class="section-content">
                 <h2 class="section-title">🎁 Quà Bí Mật</h2>
                 
-                <div class="final-message">
+                <div class="final-message" data-reveal="scale-in">
                     <p class="ending-line">✨ Bạn đã tìm được tất cả 15 ngôi sao!</p>
                     <p class="ending-line">🎉 Đây là lời chúc tốt nhất từ trái tim!</p>
                     
@@ -224,10 +224,10 @@
                         
                         <p>Chúng tôi tin vào bạn. Chúng tôi tin rằng bạn sẽ làm được những điều tuyệt vời. Và dù bạn ở đâu, dù bạn làm gì, hãy luôn nhớ rằng bạn không bao giờ cô đơn.</p>
                         
-                        <p style="margin-top: 2rem; font-size: 1.3rem; font-weight: 600;">💖 Chúc mừng sinh nhật! 💖</p>
+                        <p class="highlight">💖 Chúc mừng sinh nhật! 💖</p>
                     </div>
                     
-                    <div class="ending-stars" style="margin-top: 2rem;">
+                    <div class="ending-stars">
                         <span class="ending-star">⭐</span>
                         <span class="ending-star">✨</span>
                         <span class="ending-star">🌟</span>
@@ -249,8 +249,6 @@
     <script src="js/cursor.js"></script>
     <script src="js/fireworks.js"></script>
     <script src="js/audio.js"></script>
-    <script src="js/game.js"></script>
-    <script src="js/secret.js"></script>
     <script src="js/app.js"></script>
 </body>
 </html>
