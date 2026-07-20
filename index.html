@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Chúc mừng sinh nhật tuổi 15 - Đỗ Thị Linh Chi">
+    <title>🎂 Chúc Mừng Sinh Nhật - Đỗ Thị Linh Chi</title>
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+
+    <!-- CSS Files -->
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/animation.css">
+    <link rel="stylesheet" href="css/responsive.css">
+</head>
+<body>
+    <!-- Custom Cursor -->
+    <canvas id="cursor-trail"></canvas>
+    <div id="custom-cursor"></div>
+
+    <!-- Background Canvas -->
+    <canvas id="galaxy-canvas"></canvas>
+
+    <!-- Loader / Intro Screen -->
+    <div id="intro-screen" class="intro-screen active">
+        <div class="intro-content">
+            <div class="star-intro" id="star-intro"></div>
+            <div class="typing-text" id="typing-text"></div>
+            <div class="person-name" id="person-name" style="display: none;">Đỗ Thị Linh Chi</div>
+        </div>
+    </div>
+
+    <!-- Gift Button -->
+    <div id="gift-button-container" class="gift-button-container" style="display: none;">
+        <button id="gift-button" class="gift-button">
+            <span class="gift-icon">🎁</span>
+            <span class="gift-text">MỞ MÓN QUÀ</span>
+        </button>
+    </div>
+
+    <!-- Main Content -->
+    <main id="main-content" class="main-content">
+        
+        <!-- Section 1: Opening Message -->
+        <section id="section-1" class="section section-1">
+            <div class="section-content">
+                <h2 class="section-title fade-in-text">Trong hàng tỷ vì sao ngoài kia...</h2>
+                <p class="message-line fade-in-text" style="animation-delay: 0.3s;">Có những ngôi sao sáng rực...</p>
+                <p class="message-line fade-in-text" style="animation-delay: 0.6s;">Có những ngôi sao âm thầm chiếu sáng...</p>
+                <p class="message-line fade-in-text" style="animation-delay: 0.9s;">Nhưng ngôi sao đặc biệt nhất...</p>
+                <p class="message-line fade-in-text" style="animation-delay: 1.2s;">Lại là ngôi sao trong con tim mình.</p>
+                <p class="message-line main-message fade-in-text" style="animation-delay: 1.5s;">Hôm nay, em bước sang tuổi 15 - một tuổi đẹp lắm! 💫</p>
+            </div>
+        </section>
+
+        <!-- Section 2: Interactive Card -->
+        <section id="section-2" class="section section-2">
+            <div class="card-container">
+                <div class="card glassmorphism" id="birthday-card">
+                    <div class="card-front">
+                        <div class="card-content">
+                            <div class="card-icon">🎂</div>
+                            <h3 class="card-title">Chúc Mừng</h3>
+                            <p class="card-subtitle">Sinh Nhật Tuổi 15</p>
+                            <p class="card-date">21.07.2026</p>
+                        </div>
+                    </div>
+                    <div class="card-back">
+                        <div class="wishes-text">
+                            <p class="wish-line">✨ Chúc em ngàn lần hạnh phúc</p>
+                            <p class="wish-line">🌈 Tuổi trẻ rực rỡ như cầu vồng</p>
+                            <p class="wish-line">📚 Học tập thật tốt, đạt tất cả ước mơ</p>
+                            <p class="wish-line">💪 Luôn mạnh khỏe, tự tin và rạng rỡ</p>
+                            <p class="wish-line">❤️ Bao quanh bởi tình yêu và sự quan tâm</p>
+                            <p class="wish-line">🌟 Mỗi ngày là một cuộc phiêu lưu mới</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section 3: Photo Album -->
+        <section id="section-3" class="section section-3">
+            <div class="section-content">
+                <h2 class="section-title">Những Khoảnh Khắc Đặc Biệt</h2>
+                <div class="album-grid" id="album-grid">
+                    <div class="album-item parallax-item">
+                        <img src="https://via.placeholder.com/400x300?text=Kỷ+Niệm+1" alt="Kỷ niệm">
+                        <div class="album-overlay">
+                            <span>Tuổi thơ tươi sáng</span>
+                        </div>
+                    </div>
+                    <div class="album-item parallax-item">
+                        <img src="https://via.placeholder.com/400x300?text=Kỷ+Niệm+2" alt="Kỷ niệm">
+                        <div class="album-overlay">
+                            <span>Những nụ cười</span>
+                        </div>
+                    </div>
+                    <div class="album-item parallax-item">
+                        <img src="https://via.placeholder.com/400x300?text=Kỷ+Niệm+3" alt="Kỷ niệm">
+                        <div class="album-overlay">
+                            <span>Kỷ niệm đẹp</span>
+                        </div>
+                    </div>
+                    <div class="album-item parallax-item">
+                        <img src="https://via.placeholder.com/400x300?text=Kỷ+Niệm+4" alt="Kỷ niệm">
+                        <div class="album-overlay">
+                            <span>Tình bạn vàng</span>
+                        </div>
+                    </div>
+                    <div class="album-item parallax-item">
+                        <img src="https://via.placeholder.com/400x300?text=Kỷ+Niệm+5" alt="Kỷ niệm">
+                        <div class="album-overlay">
+                            <span>Ước mơ sáng</span>
+                        </div>
+                    </div>
+                    <div class="album-item parallax-item">
+                        <img src="https://via.placeholder.com/400x300?text=Kỷ+Niệm+6" alt="Kỷ niệm">
+                        <div class="album-overlay">
+                            <span>Tương lai rực rỡ</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section 4: Wishes -->
+        <section id="section-4" class="section section-4">
+            <div class="section-content">
+                <h2 class="section-title">Những Lời Chúc Yêu Thương</h2>
+                <div class="wishes-container">
+                    <div class="wish-item">
+                        <span class="wish-heart">❤️</span>
+                        <p class="wish-text">Tuổi 15 là tuổi của những khát khao và ước mơ lớn lao!</p>
+                    </div>
+                    <div class="wish-item">
+                        <span class="wish-heart">💫</span>
+                        <p class="wish-text">Chúc em mạnh mẽ vượt qua mọi thử thách!</p>
+                    </div>
+                    <div class="wish-item">
+                        <span class="wish-heart">🌈</span>
+                        <p class="wish-text">Mỗi ngày là một cơ hội để tỏa sáng!</p>
+                    </div>
+                    <div class="wish-item">
+                        <span class="wish-heart">⭐</span>
+                        <p class="wish-text">Em chính là ngôi sao sáng nhất!</p>
+                    </div>
+                    <div class="wish-item">
+                        <span class="wish-heart">🎯</span>
+                        <p class="wish-text">Đừng bao giờ từ bỏ những ước mơ của mình!</p>
+                    </div>
+                    <div class="wish-item">
+                        <span class="wish-heart">🌸</span>
+                        <p class="wish-text">Luôn giữ nụ cười tươi, trái tim sáng!</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section 5: Birthday Cake -->
+        <section id="section-5" class="section section-5">
+            <div class="section-content">
+                <h2 class="section-title">Chiếc Bánh Sinh Nhật</h2>
+                <div class="cake-container">
+                    <div class="cake">
+                        <div class="cake-layer layer-1"></div>
+                        <div class="cake-layer layer-2"></div>
+                        <div class="cake-layer layer-3"></div>
+                        
+                        <!-- 15 Candles -->
+                        <div id="candles-container" class="candles-container">
+                            <!-- Candles will be generated by JS -->
+                        </div>
+                    </div>
+                    <div class="cake-instruction">
+                        <p>💡 Click từng cây nến hoặc giữ chuột để "thổi"</p>
+                        <div class="progress-bar">
+                            <div id="candle-progress" class="progress-fill"></div>
+                        </div>
+                        <span id="candle-count">0/15 cây nến</span>
+                    </div>
+                </div>
+
+                <!-- Fireworks Canvas -->
+                <canvas id="fireworks-canvas"></canvas>
+            </div>
+        </section>
+
+        <!-- Section 6: Hidden Game -->
+        <section id="section-6" class="section section-6">
+            <div class="section-content">
+                <h2 class="section-title">🔍 Tìm 15 Ngôi Sao Bí Ẩn</h2>
+                <p class="game-description">Tìm đủ 15 ngôi sao để mở khóa quà cuối cùng!</p>
+                <div class="game-progress">
+                    <div class="progress-bar">
+                        <div id="game-progress" class="progress-fill"></div>
+                    </div>
+                    <span id="stars-found">0/15 sao</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section 7: Final Gift -->
+        <section id="section-7" class="section section-7" style="display: none;">
+            <div class="section-content">
+                <h2 class="section-title">🎁 Quà Cuối Cùng</h2>
+                <div class="final-gift-container">
+                    <div class="gift-box" id="final-gift-box">
+                        <div class="gift-top"></div>
+                        <div class="gift-front"></div>
+                        <div class="gift-side"></div>
+                    </div>
+                </div>
+                <div id="final-message" class="final-message" style="display: none;">
+                    <p>✨ Cảm ơn em đã khám phá hết cuộc phiêu lưu này!</p>
+                    <p>Mỗi ngôi sao, mỗi lời chúc đều chứa đầy yêu thương.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section 8: Timeline (Future) -->
+        <section id="section-8" class="section section-8">
+            <div class="section-content">
+                <h2 class="section-title">🚀 Nhìn Về Tương Lai</h2>
+                <div class="timeline" id="timeline">
+                    <!-- Timeline items will be generated by JS -->
+                </div>
+            </div>
+        </section>
+
+        <!-- Section 9: Ending -->
+        <section id="section-9" class="section section-9">
+            <div class="section-content ending-content">
+                <div class="ending-star"></div>
+                <div class="ending-message">
+                    <p class="ending-line">Dù sau này em bao nhiêu tuổi...</p>
+                    <p class="ending-line">Thì ngày hôm nay...</p>
+                    <p class="ending-line">Vẫn sẽ luôn là một ngày thật đặc biệt.</p>
+                </div>
+                <div class="final-wishes">
+                    <h3>🎂 Chúc mừng sinh nhật!</h3>
+                    <h3>🎉 Happy Birthday!</h3>
+                    <p>❤️ Chúc em tuổi mới luôn hạnh phúc, mạnh khỏe và đạt được mọi điều mình mong muốn.</p>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Audio Control -->
+    <div id="audio-control" class="audio-control">
+        <button id="audio-toggle" class="audio-btn">🔊</button>
+    </div>
+
+    <!-- Confetti Container -->
+    <div id="confetti-container"></div>
+
+    <!-- Secret Mode Notification -->
+    <div id="secret-notification" class="secret-notification" style="display: none;"></div>
+
+    <!-- JS Files -->
+    <script src="js/app.js"></script>
+    <script src="js/animation.js"></script>
+    <script src="js/particles.js"></script>
+    <script src="js/cursor.js"></script>
+    <script src="js/fireworks.js"></script>
+    <script src="js/audio.js"></script>
+    <script src="js/game.js"></script>
+    <script src="js/secret.js"></script>
+</body>
+</html>
